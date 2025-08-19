@@ -9,7 +9,7 @@ from datetime import datetime
 # Import các module
 from utils.config_loader import load_config, print_config_summary
 from utils.transforms import create_transforms
-from models.backbone import RelationNetworkModel
+from models.backbone import FlexibleDistanceModel
 from data.dataset import FewShotDataset
 from analysis.dataset_analysis import analyze_and_visualize_dataset
 from evaluation.metrics import calculate_detailed_metrics, print_detailed_evaluation_metrics
@@ -19,6 +19,7 @@ from visualization.plots import (
     plot_single_results
 )
 from training.episode_runner import run_multiple_episodes_with_detailed_evaluation
+from utils.class_augmentation import ClassSpecificAugmentation
 
 def save_config_to_output_folder(config, output_folder, aug_stats=None):
     """
@@ -96,12 +97,24 @@ def print_augmentation_stats(aug_stats, config):
     print("=" * 50)
     print(f"📈 Tổng ảnh gốc trong dataset: {aug_stats['total_original_images']:,}")
     print(f"🎯 Ảnh sử dụng mỗi episode: {aug_stats['images_per_episode']}")
-    print(f"📦 Tổng ảnh gốc được sử dụng: {aug_stats['total_original_used']:,}")
-    print(f"🔄 Ảnh được augment mỗi episode: {aug_stats['augmented_images_per_episode']}")
-    print(f"✨ Tổng ảnh được augment: {aug_stats['total_augmented_images']:,}")
-    print(f"📊 Tổng ảnh sau augmentation: {aug_stats['total_images_after_aug']:,}")
-    print(f"📈 Tỷ lệ augmentation: {aug_stats['augmentation_ratio']:.2%}")
-    print(f"🚀 Kích thước dataset hiệu quả: {aug_stats['effective_dataset_size']:,}")
+    # print(f"📦 Tổng ảnh gốc được sử dụng: {aug_stats['total_original_used']:,}")
+    # print(f"🔄 Ảnh được augment mỗi episode: {aug_stats['augmented_images_per_episode']}")
+    # print(f"✨ Tổng ảnh được augment: {aug_stats['total_augmented_images']:,}")
+    # print(f"📊 Tổng ảnh sau augmentation: {aug_stats['total_images_after_aug']:,}")
+    # print(f"📈 Tỷ lệ augmentation: {aug_stats['augmentation_ratio']:.2%}")
+    # print(f"🚀 Kích thước dataset hiệu quả: {aug_stats['effective_dataset_size']:,}")
+    
+    # Tính toán tổng số lượng ảnh của dataset sau augmentation
+    total_dataset_after_aug = aug_stats['total_original_images'] + aug_stats['total_augmented_images']
+    print(f"📊 Tổng số lượng ảnh dataset sau augmentation: {total_dataset_after_aug:,}")
+    print(f"📈 Tỷ lệ tăng dataset: {(aug_stats['total_augmented_images']/aug_stats['total_original_images'])*100:.1f}%")
+    
+    # Thông tin về config được sử dụng
+    print(f"\n⚙️ CẤU HÌNH FEW-SHOT LEARNING:")
+    print(f"   • {config['N_WAY']}-way, {config['K_SHOT']}-shot, {config['Q_QUERY']}-query, {config['Q_VALID']}-valid")
+    print(f"   • Số episodes: {config['NUM_EPISODES']}")
+    print(f"   • Tổng ảnh được sử dụng: {aug_stats['total_original_used']:,} (gốc) + {aug_stats['total_augmented_images']:,} (augment) = {aug_stats['total_images_after_aug']:,}")
+    print(f"   • Tỷ lệ sử dụng dataset: {(aug_stats['total_images_after_aug']/total_dataset_after_aug)*100:.1f}%")
     
     # Thông tin chi tiết về augmentation
     aug_config = config['AUGMENTATION_CONFIG']
@@ -135,18 +148,27 @@ def main():
     DEVICE = 'cuda' if torch.cuda.is_available() and config['USE_CUDA'] else 'cpu'
     config['DEVICE'] = DEVICE
     
-    # Phân tích và vẽ đồ thị dataset
+    # Phân tích dataset
     print("📈 PHÂN TÍCH DATASET:")
-    if config['DETAILED_ANALYSIS']:
-        print("🔍 Chạy phân tích chi tiết...")
-        dataset_info = analyze_and_visualize_dataset(config['DATASET_PATH'], config)
-    else:
-        print("🔍 Chạy phân tích cơ bản...")
-        dataset_info = analyze_and_visualize_dataset(config['DATASET_PATH'], config)
+    dataset_info = analyze_and_visualize_dataset(config['DATASET_PATH'], config)
+    
+    # Tạo đồ thị phân bố class riêng biệt
+    print("📊 TẠO ĐỒ THỊ PHÂN BỐ CLASS:")
+    from analysis.dataset_analysis import create_class_distribution_chart
+    class_dist_info = create_class_distribution_chart(config['DATASET_PATH'], config)
     
     if dataset_info is None:
         print("❌ Không thể phân tích dataset. Thoát chương trình.")
         exit()
+    
+    # Debug: Kiểm tra class distribution
+    print(f"🔍 Debug - Dataset info keys: {list(dataset_info.keys())}")
+    if 'class_distribution' in dataset_info:
+        print(f"📊 Class distribution có sẵn: {len(dataset_info['class_distribution'])} classes")
+        print(f"   Sample: {dict(list(dataset_info['class_distribution'].items())[:3])}")
+    else:
+        print("⚠️ Không có class_distribution trong dataset_info")
+        print("   Có thể cần chạy DETAILED_ANALYSIS = True")
     
     # Kiểm tra xem dataset có đủ dữ liệu cho few-shot learning không
     if dataset_info['total_images'] < config['N_WAY'] * (config['K_SHOT'] + config['Q_QUERY']):
@@ -154,11 +176,84 @@ def main():
         print(f"   Cần ít nhất {config['N_WAY'] * (config['K_SHOT'] + config['Q_QUERY'])} ảnh, hiện có {dataset_info['total_images']} ảnh")
     
     # Tính toán và hiển thị thống kê augmentation
-    aug_stats = calculate_augmentation_stats(config, dataset_info)
-    print_augmentation_stats(aug_stats, config)
-    
-    # Cập nhật config với thống kê augmentation
-    save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
+    if config.get('USE_AUGMENTATION', False):
+        aug_stats = calculate_augmentation_stats(config, dataset_info)
+        print_augmentation_stats(aug_stats, config)
+        
+        # Cập nhật config với thống kê augmentation
+        save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
+        
+        # Xử lý class-specific augmentation
+        if config.get('CLASS_AUGMENTATION', {}).get('enable_selective', False):
+            print("\n🎯 PHÂN TÍCH CLASS-SPECIFIC AUGMENTATION:")
+            print("=" * 60)
+            
+            # Khởi tạo class-specific augmentation
+            class_aug = ClassSpecificAugmentation(config)
+            
+            # Lấy class distribution từ dataset_info
+            class_distribution = dataset_info.get('class_distribution', {})
+            if class_distribution:
+                # Tính toán kế hoạch augmentation
+                augmentation_plan = class_aug.calculate_augmentation_needs(class_distribution)
+                
+                # In kế hoạch augmentation
+                class_aug.print_augmentation_plan(class_distribution)
+                
+
+                
+                # Cập nhật aug_stats với thông tin class-specific
+                aug_stats['class_specific_info'] = {
+                    'augmentation_plan': augmentation_plan,
+                    'classes_to_augment': [name for name, plan in augmentation_plan.items() 
+                                         if plan['should_augment']],
+                    'classes_to_skip': [name for name, plan in augmentation_plan.items() 
+                                       if not plan['should_augment']]
+                }
+                
+                # Cập nhật config với thống kê mới
+                save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
+                
+                # Tạo đồ thị so sánh augmentation
+                print("📊 TẠO ĐỒ THỊ SO SÁNH AUGMENTATION:")
+                from analysis.dataset_analysis import create_augmentation_comparison_chart
+                aug_comparison_info = create_augmentation_comparison_chart(config['DATASET_PATH'], config, aug_stats)
+            else:
+                print("⚠️ Không thể lấy thông tin class distribution từ dataset")
+                print("   Dataset info keys:", list(dataset_info.keys()))
+        else:
+            print("ℹ️ Class-specific augmentation không được bật")
+            
+            # Tạo đồ thị so sánh augmentation (cho trường hợp không có class-specific)
+            print("📊 TẠO ĐỒ THỊ SO SÁNH AUGMENTATION:")
+            from analysis.dataset_analysis import create_augmentation_comparison_chart
+            aug_comparison_info = create_augmentation_comparison_chart(config['DATASET_PATH'], config, aug_stats)
+    else:
+        # Tạo thống kê giả khi không có augmentation
+        aug_stats = {
+            'total_original_images': dataset_info['total_images'],
+            'images_per_episode': config['N_WAY'] * (config['K_SHOT'] + config['Q_QUERY'] + config['Q_VALID']),
+            'total_original_used': config['N_WAY'] * (config['K_SHOT'] + config['Q_QUERY'] + config['Q_VALID']) * config['NUM_EPISODES'],
+            'augmented_images_per_episode': 0,  # Không có augmentation
+            'total_augmented_images': 0,  # Không có augmentation
+            'total_images_after_aug': config['N_WAY'] * (config['K_SHOT'] + config['Q_QUERY'] + config['Q_VALID']) * config['NUM_EPISODES'],
+            'augmentation_ratio': 0.0,  # Không có augmentation
+            'effective_dataset_size': config['N_WAY'] * (config['K_SHOT'] + config['Q_QUERY'] + config['Q_VALID']) * config['NUM_EPISODES']
+        }
+        
+        print("\n📊 THỐNG KÊ (KHÔNG CÓ AUGMENTATION):")
+        print("=" * 50)
+        print(f"📈 Tổng ảnh gốc trong dataset: {aug_stats['total_original_images']:,}")
+        print(f"🎯 Ảnh sử dụng mỗi episode: {aug_stats['images_per_episode']}")
+        print(f"📦 Tổng ảnh được sử dụng: {aug_stats['total_original_used']:,}")
+        print(f"🔄 Ảnh được augment: 0 (USE_AUGMENTATION = False)")
+        print(f"📊 Tổng ảnh sau augmentation: {aug_stats['total_images_after_aug']:,}")
+        print(f"📈 Tỷ lệ augmentation: 0.00% (USE_AUGMENTATION = False)")
+        print(f"🚀 Kích thước dataset hiệu quả: {aug_stats['effective_dataset_size']:,}")
+        print("=" * 50)
+        
+        # Cập nhật config với thống kê
+        save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
     
     print("\n" + "=" * 60)
     
@@ -172,21 +267,39 @@ def main():
         transform_test=transform_basic
     )
     
-    # Khởi tạo model
-    model = RelationNetworkModel(embed_dim=config['EMBED_DIM'], relation_dim=config['RELATION_DIM']).to(DEVICE)
-    print(f"✅ Relation Network Model đã được tải lên {DEVICE}")
+    # Khởi tạo model với phương pháp được chọn
+    distance_method = config.get('DISTANCE_METHOD', 'relation_network')
+    use_learnable = config.get('USE_LEARNABLE_METRIC', True)
+    
+    if use_learnable:
+        model = FlexibleDistanceModel(
+            embed_dim=config['EMBED_DIM'], 
+            relation_dim=config['RELATION_DIM'],
+            distance_method=distance_method
+        ).to(DEVICE)
+    else:
+        model = FlexibleDistanceModel(
+            embed_dim=config['EMBED_DIM'], 
+            relation_dim=config['RELATION_DIM'],
+            distance_method="euclidean"
+        ).to(DEVICE)
+    
+    print(f"✅ Flexible Distance Model đã được tải lên {DEVICE}")
     print(f"📊 Cấu hình: {config['N_WAY']}-way, {config['K_SHOT']}-shot, {config['Q_QUERY']}-query")
-    print(f"🧠 Kiến trúc: Vision Transformer + Relation Network (CNN)")
+    print(f"🧠 Kiến trúc: Vision Transformer + {distance_method.upper()}")
     print("=" * 60)
 
     # Chạy episodes với Relation Network
-    print(f"\n🎯 CHẠY {config['NUM_EPISODES']} EPISODES VỚI RELATION NETWORK:")
+    use_aug = config.get('USE_AUGMENTATION', False)
+    aug_status = "CÓ AUGMENTATION" if use_aug else "KHÔNG AUGMENTATION"
+    
+    print(f"\n🎯 CHẠY {config['NUM_EPISODES']} EPISODES VỚI RELATION NETWORK ({aug_status}):")
     results_with_aug = run_multiple_episodes_with_detailed_evaluation(
         model, fewshot_data, config, config['NUM_EPISODES'], 
-        use_augmentation=True, include_validation=config['USE_VALIDATION']
+        use_augmentation=use_aug, include_validation=config['USE_VALIDATION']
     )
     
-    print(f"\n📊 KẾT QUẢ VỚI RELATION NETWORK:")
+    print(f"\n📊 KẾT QUẢ VỚI RELATION NETWORK ({aug_status}):")
     print(f"   Query Accuracy trung bình: {results_with_aug['avg_query_acc']:.4f} ± {results_with_aug['std_query_acc']:.4f}")
     print(f"   Query Loss trung bình: {results_with_aug['avg_query_loss']:.4f} ± {results_with_aug['std_query_loss']:.4f}")
     print(f"   Query Accuracy min/max: {results_with_aug['min_query_acc']:.4f} / {results_with_aug['max_query_acc']:.4f}")
@@ -254,7 +367,7 @@ def main():
             analyze_accuracy_by_class(valid_predictions, valid_targets, class_names, "valid_accuracy_by_class.png", config)
             # plot_imbalance_analysis(valid_metrics, class_names, "valid_imbalance_analysis.png", config)
     
-    # Vẽ đồ thị kết quả với augmentation
+    # Vẽ đồ thị kết quả
     if config['SAVE_RESULTS']:
         plot_single_results(results_with_aug, "episode_results_single.png", config)
     
@@ -265,16 +378,18 @@ def main():
         print("🔇 Chế độ không hiển thị ảnh pop-up đã được bật (SHOW_PLOTS = False)")
     print("=" * 60)
     
-    if config['DETAILED_ANALYSIS']:
-        print(f"📊 Đồ thị phân tích chi tiết: {config['OUTPUT_FOLDER']}/detailed_analysis.png")
-        print(f"📊 Đồ thị định dạng file: {config['OUTPUT_FOLDER']}/file_formats_analysis.png")
-    else:
-        print(f"📊 Đồ thị phân tích cơ bản: {config['OUTPUT_FOLDER']}/dataset_analysis.png")
+    print(f"📊 Đồ thị phân bố class: {config['OUTPUT_FOLDER']}/class_distribution.png")
+    
+    if config.get('USE_AUGMENTATION', False):
+        print(f"📊 Đồ thị so sánh augmentation: {config['OUTPUT_FOLDER']}/augmentation_comparison.png")
     
     if config['SAVE_RESULTS']:
             print(f"📊 Đồ thị kết quả episodes: {config['OUTPUT_FOLDER']}/episode_results_single.png")
     print(f"📊 Confusion matrix: {config['OUTPUT_FOLDER']}/query_confusion_matrix.png")
     print(f"📊 Accuracy theo class: {config['OUTPUT_FOLDER']}/query_accuracy_by_class.png")
+    
+
+    
     # print(f"📊 Imbalance analysis: {config['OUTPUT_FOLDER']}/query_imbalance_analysis.png")
     
     if config['USE_VALIDATION']:
@@ -282,8 +397,12 @@ def main():
         print(f"📊 Validation accuracy theo class: {config['OUTPUT_FOLDER']}/valid_accuracy_by_class.png")
         # print(f"📊 Validation imbalance analysis: {config['OUTPUT_FOLDER']}/valid_imbalance_analysis.png")
     
-    print(f"🧠 Phương pháp: Relation Network (CNN) thay vì Euclidean Distance")
-    print(f"📈 Relation scores: 0-1 (cao hơn = tương tự hơn)")
+    print(f"🧠 Phương pháp: {distance_method.upper()} ({'Có thể học được' if use_learnable else 'Cố định'})")
+    if use_learnable:
+        print(f"📈 Relation scores: 0-1 (cao hơn = tương tự hơn)")
+    else:
+        print(f"📈 Euclidean similarity: 0-1 (cao hơn = tương tự hơn)")
+    print(f"🔄 Data Augmentation: {'BẬT' if config.get('USE_AUGMENTATION', False) else 'TẮT'} (USE_AUGMENTATION = {config.get('USE_AUGMENTATION', False)})")
     
     print("=" * 60)
 

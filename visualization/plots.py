@@ -15,6 +15,9 @@ def plot_confusion_matrix(cm, class_names, save_path, config):
     if not save_path.startswith(config['OUTPUT_FOLDER']):
         save_path = os.path.join(config['OUTPUT_FOLDER'], save_path)
     
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
+    
     plt.figure(figsize=(10, 8))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
                 xticklabels=class_names, yticklabels=class_names)
@@ -41,6 +44,9 @@ def analyze_accuracy_by_class(predictions, targets, class_names, save_path, conf
     # Đảm bảo save_path nằm trong output folder
     if not save_path.startswith(config['OUTPUT_FOLDER']):
         save_path = os.path.join(config['OUTPUT_FOLDER'], save_path)
+    
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
     
     n_classes = len(class_names)
     class_accuracies = []
@@ -94,6 +100,9 @@ def plot_imbalance_analysis(metrics, class_names, save_path, config):
     # Đảm bảo save_path nằm trong output folder
     if not save_path.startswith(config['OUTPUT_FOLDER']):
         save_path = os.path.join(config['OUTPUT_FOLDER'], save_path)
+    
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
     
     support_per_class = metrics['support_per_class']
     f1_per_class = metrics['f1_per_class']
@@ -189,6 +198,9 @@ def plot_episode_results(results_with_aug, results_without_aug, save_path, confi
     if not save_path.startswith(config['OUTPUT_FOLDER']):
         save_path = os.path.join(config['OUTPUT_FOLDER'], save_path)
     
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
+    
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
     fig.suptitle('SO SÁNH KẾT QUẢ VỚI VÀ KHÔNG CÓ DATA AUGMENTATION', fontsize=16, fontweight='bold')
     
@@ -267,10 +279,13 @@ def plot_single_results(results_with_aug, save_path, config):
     if not save_path.startswith(config['OUTPUT_FOLDER']):
         save_path = os.path.join(config['OUTPUT_FOLDER'], save_path)
     
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
+    
     has_validation = 'valid_accuracies' in results_with_aug
     
     if has_validation:
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
         fig.suptitle('KẾT QUẢ FEW-SHOT LEARNING VỚI DATA AUGMENTATION (CÓ VALIDATION)', fontsize=16, fontweight='bold')
         
         # 1. Accuracy theo episodes (Query vs Validation)
@@ -306,47 +321,9 @@ def plot_single_results(results_with_aug, save_path, config):
         ax2.axhline(y=avg_valid_loss, color='magenta', linestyle='--', alpha=0.7, label=f'Valid TB: {avg_valid_loss:.3f}')
         ax2.legend()
         
-        # 3. Histogram accuracy (Query vs Validation)
-        ax3.hist(results_with_aug['query_accuracies'], bins=15, color='lightblue', edgecolor='navy', alpha=0.7, label='Query')
-        ax3.hist(results_with_aug['valid_accuracies'], bins=15, color='lightgreen', edgecolor='darkgreen', alpha=0.7, label='Validation')
-        ax3.set_title('Phân bố Accuracy', fontsize=14, fontweight='bold')
-        ax3.set_xlabel('Accuracy', fontsize=12)
-        ax3.set_ylabel('Số Episode', fontsize=12)
-        ax3.axvline(x=avg_query_acc, color='blue', linestyle='--', alpha=0.7, label=f'Query TB: {avg_query_acc:.3f}')
-        ax3.axvline(x=avg_valid_acc, color='green', linestyle='--', alpha=0.7, label=f'Valid TB: {avg_valid_acc:.3f}')
-        ax3.legend()
-        
-        # 4. Statistics table
-        ax4.axis('tight')
-        ax4.axis('off')
-        
-        stats_data = [
-            ['Metric', 'Query', 'Validation'],
-            ['Avg Accuracy', f"{avg_query_acc:.4f}", f"{avg_valid_acc:.4f}"],
-            ['Std Accuracy', f"{results_with_aug['std_query_acc']:.4f}", f"{results_with_aug['std_valid_acc']:.4f}"],
-            ['Min Accuracy', f"{results_with_aug['min_query_acc']:.4f}", f"{results_with_aug['min_valid_acc']:.4f}"],
-            ['Max Accuracy', f"{results_with_aug['max_query_acc']:.4f}", f"{results_with_aug['max_valid_acc']:.4f}"],
-            ['Avg Loss', f"{avg_query_loss:.4f}", f"{avg_valid_loss:.4f}"],
-            ['Std Loss', f"{results_with_aug['std_query_loss']:.4f}", f"{results_with_aug['std_valid_loss']:.4f}"],
-            ['Tổng Episodes', f"{len(results_with_aug['query_accuracies'])}", f"{len(results_with_aug['valid_accuracies'])}"]
-        ]
-        
-        table = ax4.table(cellText=stats_data[1:], colLabels=stats_data[0], 
-                         cellLoc='center', loc='center')
-        table.auto_set_font_size(False)
-        table.set_fontsize(9)
-        table.scale(1.2, 1.5)
-        
-        # Tô màu header
-        for i in range(3):
-            table[(0, i)].set_facecolor('#4CAF50')
-            table[(0, i)].set_text_props(weight='bold', color='white')
-        
-        ax4.set_title('Thống kê kết quả', fontsize=14, fontweight='bold', pad=20)
-        
     else:
         # Fallback cho trường hợp không có validation
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 10))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
         fig.suptitle('KẾT QUẢ FEW-SHOT LEARNING VỚI DATA AUGMENTATION', fontsize=16, fontweight='bold')
         
         # 1. Accuracy theo episodes
@@ -373,42 +350,6 @@ def plot_single_results(results_with_aug, save_path, config):
         avg_loss = results_with_aug['avg_query_loss']
         ax2.axhline(y=avg_loss, color='blue', linestyle='--', alpha=0.7, label=f'Trung bình: {avg_loss:.3f}')
         ax2.legend()
-        
-        # 3. Histogram accuracy
-        ax3.hist(results_with_aug['query_accuracies'], bins=15, color='lightblue', edgecolor='navy', alpha=0.7)
-        ax3.set_title('Phân bố Accuracy', fontsize=14, fontweight='bold')
-        ax3.set_xlabel('Accuracy', fontsize=12)
-        ax3.set_ylabel('Số Episode', fontsize=12)
-        ax3.axvline(x=avg_acc, color='red', linestyle='--', alpha=0.7, label=f'Trung bình: {avg_acc:.3f}')
-        ax3.legend()
-        
-        # 4. Statistics table
-        ax4.axis('tight')
-        ax4.axis('off')
-        
-        stats_data = [
-            ['Metric', 'Giá trị'],
-            ['Avg Accuracy', f"{avg_acc:.4f}"],
-            ['Std Accuracy', f"{results_with_aug['std_query_acc']:.4f}"],
-            ['Min Accuracy', f"{results_with_aug['min_query_acc']:.4f}"],
-            ['Max Accuracy', f"{results_with_aug['max_query_acc']:.4f}"],
-            ['Avg Loss', f"{avg_loss:.4f}"],
-            ['Std Loss', f"{results_with_aug['std_query_loss']:.4f}"],
-            ['Tổng Episodes', f"{len(results_with_aug['query_accuracies'])}"]
-        ]
-        
-        table = ax4.table(cellText=stats_data[1:], colLabels=stats_data[0], 
-                         cellLoc='center', loc='center')
-        table.auto_set_font_size(False)
-        table.set_fontsize(10)
-        table.scale(1.2, 1.5)
-        
-        # Tô màu header
-        for i in range(2):
-            table[(0, i)].set_facecolor('#4CAF50')
-            table[(0, i)].set_text_props(weight='bold', color='white')
-        
-        ax4.set_title('Thống kê kết quả', fontsize=14, fontweight='bold', pad=20)
     
     plt.tight_layout()
     plt.savefig(save_path, dpi=config['PLOT_DPI'], bbox_inches='tight')
@@ -420,3 +361,5 @@ def plot_single_results(results_with_aug, save_path, config):
         plt.close()  # Đóng figure để tiết kiệm memory
     
     print(f"📊 Đồ thị kết quả đã được lưu vào: {save_path}")
+
+

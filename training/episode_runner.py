@@ -115,7 +115,8 @@ def run_multiple_episodes_with_detailed_evaluation(model, dataset, config, num_e
     # Thu thập tên class được sử dụng trong các episodes
     all_episode_class_names = []
     
-    print(f"🔄 Đang chạy {num_episodes} episodes với Relation Network...")
+    aug_status = "có augmentation" if use_augmentation else "không augmentation"
+    print(f"🔄 Đang chạy {num_episodes} episodes với Relation Network ({aug_status})...")
     
     for episode in range(num_episodes):
         results = run_episode_with_detailed_evaluation(model, dataset, config, use_augmentation, include_validation)

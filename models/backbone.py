@@ -205,3 +205,104 @@ def compute_prototypes(support_embeddings, support_labels, n_classes):
         prototype = class_embeddings.mean(0)
         prototypes.append(prototype)
     return torch.stack(prototypes)
+
+class FlexibleDistanceModel(nn.Module):
+    """
+    Model linh hoạt có thể chọn giữa Euclidean Distance và Relation Network
+    """
+    def __init__(self, embed_dim=512, relation_dim=64, distance_method="relation_network"):
+        super().__init__()
+        self.backbone = TransformerBackbone(embed_dim)
+        self.relation_net = RelationNetwork(embed_dim, relation_dim)
+        self.embed_dim = embed_dim
+        self.relation_dim = relation_dim
+        self.distance_method = distance_method
+        
+        print(f"🎯 Khởi tạo model với phương pháp: {distance_method}")
+        if distance_method == "relation_network":
+            print(f"   - Sử dụng Relation Network (có thể học được)")
+            print(f"   - Relation dimension: {relation_dim}")
+        else:
+            print(f"   - Sử dụng Euclidean Distance (cố định)")
+    
+    def forward(self, support_imgs, query_imgs):
+        """
+        Forward pass với phương pháp được chọn
+        """
+        if self.distance_method == "relation_network":
+            return self._forward_relation_network(support_imgs, query_imgs)
+        else:
+            return self._forward_euclidean(support_imgs, query_imgs)
+    
+    def _forward_relation_network(self, support_imgs, query_imgs):
+        """
+        Forward pass cho Relation Network
+        """
+        # Extract features
+        support_features = self.backbone(support_imgs)  # (n_support, embed_dim)
+        query_features = self.backbone(query_imgs)      # (n_query, embed_dim)
+        
+        # Compute relation scores
+        relation_scores = self.relation_net(query_features, support_features)
+        
+        return relation_scores
+    
+    def _forward_euclidean(self, support_imgs, query_imgs):
+        """
+        Forward pass cho Euclidean Distance
+        """
+        # Extract features
+        support_features = self.backbone(support_imgs)  # (n_support, embed_dim)
+        query_features = self.backbone(query_imgs)      # (n_query, embed_dim)
+        
+        # Compute Euclidean distances (chuyển thành similarity scores)
+        distances = euclidean_distance(query_features, support_features)
+        # Chuyển distance thành similarity (càng gần càng cao)
+        similarity_scores = 1.0 / (1.0 + distances)
+        
+        return similarity_scores
+    
+    def compute_class_scores(self, support_imgs, support_labels, query_imgs, n_classes):
+        """
+        Tính scores cho từng class với phương pháp được chọn
+        """
+        if self.distance_method == "relation_network":
+            return self._compute_class_scores_relation(support_imgs, support_labels, query_imgs, n_classes)
+        else:
+            return self._compute_class_scores_euclidean(support_imgs, support_labels, query_imgs, n_classes)
+    
+    def _compute_class_scores_relation(self, support_imgs, support_labels, query_imgs, n_classes):
+        """
+        Tính class scores sử dụng Relation Network
+        """
+        relation_scores = self._forward_relation_network(support_imgs, query_imgs)
+        
+        # Tính average relation score cho từng class
+        class_scores = torch.zeros(query_imgs.size(0), n_classes, device=query_imgs.device)
+        
+        for c in range(n_classes):
+            class_mask = (support_labels == c)
+            if class_mask.sum() > 0:
+                class_relations = relation_scores[:, class_mask]
+                class_scores[:, c] = class_relations.mean(dim=1)
+        
+        return class_scores
+    
+    def _compute_class_scores_euclidean(self, support_imgs, support_labels, query_imgs, n_classes):
+        """
+        Tính class scores sử dụng Euclidean Distance
+        """
+        # Extract features
+        support_features = self.backbone(support_imgs)
+        query_features = self.backbone(query_imgs)
+        
+        # Tính prototypes cho từng class
+        prototypes = compute_prototypes(support_features, support_labels, n_classes)
+        
+        # Tính Euclidean distances với prototypes
+        distances = euclidean_distance(query_features, prototypes)
+        
+        # Chuyển distance thành similarity scores
+        similarity_scores = 1.0 / (1.0 + distances)
+        
+        return similarity_scores

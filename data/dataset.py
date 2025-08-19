@@ -35,16 +35,11 @@ class FewShotDataset:
         Load ảnh với transform tương ứng
         """
         img = Image.open(img_path).convert('RGB')
-        # Comment lại logic augmentation - chỉ sử dụng transform cơ bản
-        # if use_augmentation and self.transform_train:
-        #     return self.transform_train(img)
-        # elif self.transform_test:
-        #     return self.transform_test(img)
-        # else:
-        #     return transforms.ToTensor()(img)
         
-        # Chỉ sử dụng transform cơ bản (không có augmentation)
-        if self.transform_test:
+        # Sử dụng logic augmentation dựa trên tham số
+        if use_augmentation and self.transform_train:
+            return self.transform_train(img)
+        elif self.transform_test:
             return self.transform_test(img)
         else:
             return transforms.ToTensor()(img)
@@ -80,7 +75,7 @@ class FewShotDataset:
         
         for i in support_idx:
             img_path, label = self.dataset.samples[i]
-            img_tensor = self.load_image_with_transform(img_path, use_augmentation=True)
+            img_tensor = self.load_image_with_transform(img_path, use_augmentation=use_augmentation)
             support_set.append((img_tensor, label_map[label]))
             
         for i in query_idx:

@@ -19,9 +19,11 @@ def load_config():
         'EMBED_DIM': 512,
         'IMAGE_SIZE': 224,
         'RELATION_DIM': 64,  # Thêm tham số cho Relation Network
+        'DISTANCE_METHOD': 'relation_network',  # Phương pháp đo khoảng cách
+        'USE_LEARNABLE_METRIC': True,  # Sử dụng metric có thể học được
         'NUM_EPISODES': 10,
         'SAVE_RESULTS': True,
-        'COMPARE_WITHOUT_AUG': False,
+        'USE_AUGMENTATION': False,  # Bật/tắt data augmentation
         'AUGMENTATION_CONFIG': {
             'random_crop_size': 32,
             'rotation_degrees': 15,
@@ -34,15 +36,21 @@ def load_config():
             },
             'grayscale_probability': 0.1
         },
-        'DISPLAY_PROGRESS': True,
-        'SAVE_PLOTS': True,
-        'PLOT_DPI': 300,
+        'CLASS_AUGMENTATION': {
+            'enable_selective': True,
+            'augment_classes': [1, 2, 9],
+            'skip_classes': [0, 3, 4, 5, 6, 7, 8],
+            'augment_ratio': 1.5,
+            'min_images_per_class': 5
+        },
         'SHOW_PLOTS': False,  # Thêm tham số cho hiển thị plots
+        'DISPLAY_PROGRESS': True,  # Hiển thị tiến độ
+        'SAVE_PLOTS': True,        # Lưu đồ thị
+        'PLOT_DPI': 300,          # Độ phân giải đồ thị
         'USE_CUDA': True,
         'USE_VALIDATION': True,
         'Q_VALID': 3,
-        'DETAILED_ANALYSIS': False,
-        'SAVE_DETAILED_PLOTS': True
+        'DETAILED_ANALYSIS': False
     }
     
     # Thử load từ config.py
@@ -90,10 +98,24 @@ def print_config_summary(config):
     print(f"   Few-Shot: {config['N_WAY']}-way, {config['K_SHOT']}-shot, {config['Q_QUERY']}-query, {config['Q_VALID']}-valid")
     print(f"   Episodes: {config['NUM_EPISODES']}")
     print(f"   Use validation: {config['USE_VALIDATION']}")
-    print(f"   Compare without augmentation: {config['COMPARE_WITHOUT_AUG']}")
+    print(f"   Use augmentation: {config.get('USE_AUGMENTATION', False)}")
+    if config.get('USE_AUGMENTATION', False):
+        class_aug = config.get('CLASS_AUGMENTATION', {})
+        if class_aug.get('enable_selective', False):
+            print(f"   Selective augmentation: BẬT")
+            print(f"   Augment classes: {class_aug.get('augment_classes', [])}")
+            print(f"   Skip classes: {class_aug.get('skip_classes', [])}")
+            print(f"   Augment ratio: {class_aug.get('augment_ratio', 1.0)}x")
+        else:
+            print(f"   Selective augmentation: TẮT (augment tất cả class)")
     print(f"   Device: {'cuda' if config['USE_CUDA'] else 'cpu'}")
     print(f"   Image size: {config['IMAGE_SIZE']}x{config['IMAGE_SIZE']}")
     print(f"   Embedding dim: {config['EMBED_DIM']}")
     print(f"   Relation Network dim: {config['RELATION_DIM']}")
+    print(f"   Distance method: {config.get('DISTANCE_METHOD', 'relation_network')}")
+    print(f"   Learnable metric: {config.get('USE_LEARNABLE_METRIC', True)}")
     print(f"   Show plots: {config.get('SHOW_PLOTS', False)}")
+    print(f"   Display progress: {config.get('DISPLAY_PROGRESS', True)}")
+    print(f"   Save plots: {config.get('SAVE_PLOTS', True)}")
+    print(f"   Plot DPI: {config.get('PLOT_DPI', 300)}")
     print("=" * 60)

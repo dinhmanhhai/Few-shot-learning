@@ -5,9 +5,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-def analyze_and_visualize_dataset(dataset_path, config):
+def create_class_distribution_chart(dataset_path, config):
     """
-    Phân tích và vẽ đồ thị số lượng ảnh trong từng class (phiên bản cơ bản)
+    Tạo đồ thị bar chart riêng cho số lượng ảnh theo từng class
     """
     PLOT_DPI = config['PLOT_DPI']
     
@@ -15,7 +15,7 @@ def analyze_and_visualize_dataset(dataset_path, config):
         print(f"❌ Thư mục {dataset_path} không tồn tại!")
         return None
     
-    print("🔍 Đang phân tích dataset...")
+    print("🔍 Đang tạo đồ thị phân bố class...")
     
     # Lấy thông tin các class
     class_names = []
@@ -28,95 +28,44 @@ def analyze_and_visualize_dataset(dataset_path, config):
             image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.gif', '.webp']
             count = 0
             for file in os.listdir(class_path):
-                if any(file.lower().endswith(ext) for ext in image_extensions):
+                file_lower = file.lower()
+                if any(file_lower.endswith(ext) for ext in image_extensions):
                     count += 1
             
-            class_names.append(class_name)
-            class_counts.append(count)
+            if count > 0:
+                class_names.append(class_name)
+                class_counts.append(count)
     
     if not class_names:
-        print("❌ Không tìm thấy class nào!")
+        print("❌ Không tìm thấy ảnh nào!")
         return None
     
-    # Tạo figure với subplots
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle('PHÂN TÍCH DATASET - SỐ LƯỢNG ẢNH THEO CLASS', fontsize=16, fontweight='bold')
-    
-    # 1. Bar chart
-    bars = ax1.bar(range(len(class_names)), class_counts, color='skyblue', edgecolor='navy', alpha=0.7)
-    ax1.set_title('Số lượng ảnh theo từng class', fontsize=14, fontweight='bold')
-    ax1.set_xlabel('Class', fontsize=12)
-    ax1.set_ylabel('Số lượng ảnh', fontsize=12)
-    ax1.set_xticks(range(len(class_names)))
-    ax1.set_xticklabels(class_names, rotation=45, ha='right')
+    # Tạo đồ thị
+    plt.figure(figsize=(12, 8))
+    bars = plt.bar(range(len(class_names)), class_counts, color='skyblue', edgecolor='navy', alpha=0.7)
+    plt.title('Số lượng ảnh theo từng class', fontsize=16, fontweight='bold')
+    plt.xlabel('Class', fontsize=12)
+    plt.ylabel('Số lượng ảnh', fontsize=12)
+    plt.xticks(range(len(class_names)), class_names, rotation=45, ha='right')
     
     # Thêm số liệu trên bars
     for bar, count in zip(bars, class_counts):
         height = bar.get_height()
-        ax1.text(bar.get_x() + bar.get_width()/2., height + max(class_counts)*0.01,
+        plt.text(bar.get_x() + bar.get_width()/2., height + max(class_counts)*0.01,
                 f'{count}', ha='center', va='bottom', fontweight='bold')
     
-    # 2. Pie chart
-    colors = plt.cm.Set3(np.linspace(0, 1, len(class_names)))
-    wedges, texts, autotexts = ax2.pie(class_counts, labels=class_names, autopct='%1.1f%%', 
-                                       colors=colors, startangle=90)
-    ax2.set_title('Tỷ lệ phân bố các class', fontsize=14, fontweight='bold')
+    # Thêm đường trung bình
+    avg_count = np.mean(class_counts)
+    plt.axhline(y=avg_count, color='red', linestyle='--', alpha=0.7, 
+                label=f'Trung bình: {avg_count:.1f}')
+    plt.legend()
+    plt.grid(True, alpha=0.3)
     
-    # 3. Horizontal bar chart (top 10 classes)
-    top_n = min(10, len(class_names))
-    top_indices = np.argsort(class_counts)[-top_n:]
-    top_names = [class_names[i] for i in top_indices]
-    top_counts = [class_counts[i] for i in top_indices]
-    
-    bars_h = ax3.barh(range(len(top_names)), top_counts, color='lightcoral', edgecolor='darkred', alpha=0.7)
-    ax3.set_title(f'Top {top_n} classes có nhiều ảnh nhất', fontsize=14, fontweight='bold')
-    ax3.set_xlabel('Số lượng ảnh', fontsize=12)
-    ax3.set_yticks(range(len(top_names)))
-    ax3.set_yticklabels(top_names)
-    
-    # Thêm số liệu trên bars
-    for bar, count in zip(bars_h, top_counts):
-        width = bar.get_width()
-        ax3.text(width + max(top_counts)*0.01, bar.get_y() + bar.get_height()/2,
-                f'{count}', ha='left', va='center', fontweight='bold')
-    
-    # 4. Statistics table
-    ax4.axis('tight')
-    ax4.axis('off')
-    
-    # Tính toán thống kê
-    total_images = sum(class_counts)
-    avg_images = total_images / len(class_names)
-    min_images = min(class_counts)
-    max_images = max(class_counts)
-    std_images = np.std(class_counts)
-    
-    stats_data = [
-        ['Tổng số class', f'{len(class_names)}'],
-        ['Tổng số ảnh', f'{total_images:,}'],
-        ['Trung bình ảnh/class', f'{avg_images:.1f}'],
-        ['Ít nhất', f'{min_images}'],
-        ['Nhiều nhất', f'{max_images}'],
-        ['Độ lệch chuẩn', f'{std_images:.1f}'],
-        ['Class ít ảnh nhất', f'{class_names[np.argmin(class_counts)]} ({min_images})'],
-        ['Class nhiều ảnh nhất', f'{class_names[np.argmax(class_counts)]} ({max_images})']
-    ]
-    
-    table = ax4.table(cellText=stats_data, colLabels=['Thống kê', 'Giá trị'], 
-                     cellLoc='left', loc='center')
-    table.auto_set_font_size(False)
-    table.set_fontsize(10)
-    table.scale(1.2, 1.5)
-    
-    # Tô màu header
-    for i in range(2):
-        table[(0, i)].set_facecolor('#4CAF50')
-        table[(0, i)].set_text_props(weight='bold', color='white')
-    
-    ax4.set_title('Thống kê tổng quan', fontsize=14, fontweight='bold', pad=20)
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(config['OUTPUT_FOLDER'], 'dataset_analysis.png'), dpi=PLOT_DPI, bbox_inches='tight')
+    plt.savefig(os.path.join(config['OUTPUT_FOLDER'], 'class_distribution.png'), dpi=PLOT_DPI, bbox_inches='tight')
     
     # Chỉ hiển thị nếu được cấu hình
     if config.get('SHOW_PLOTS', False):
@@ -124,33 +73,206 @@ def analyze_and_visualize_dataset(dataset_path, config):
     else:
         plt.close()  # Đóng figure để tiết kiệm memory
     
-    # In thống kê ra console
-    print("\n📊 THỐNG KÊ DATASET:")
-    print("=" * 50)
-    print(f"Tổng số class: {len(class_names)}")
-    print(f"Tổng số ảnh: {total_images:,}")
-    print(f"Trung bình ảnh/class: {avg_images:.1f}")
-    print(f"Ít nhất: {min_images} ảnh")
-    print(f"Nhiều nhất: {max_images} ảnh")
-    print(f"Độ lệch chuẩn: {std_images:.1f}")
-    print(f"Class ít ảnh nhất: {class_names[np.argmin(class_counts)]} ({min_images} ảnh)")
-    print(f"Class nhiều ảnh nhất: {class_names[np.argmax(class_counts)]} ({max_images} ảnh)")
-    
-    # Kiểm tra balance
-    balance_ratio = min_images / max_images
-    if balance_ratio > 0.8:
-        balance_status = "Cân bằng tốt"
-    elif balance_ratio > 0.5:
-        balance_status = "Cân bằng trung bình"
-    else:
-        balance_status = "Mất cân bằng"
-    
-    print(f"Tỷ lệ cân bằng: {balance_ratio:.2f} ({balance_status})")
-    print("=" * 50)
+    print(f"📊 Đồ thị phân bố class đã được lưu vào: {config['OUTPUT_FOLDER']}/class_distribution.png")
     
     return {
         'class_names': class_names,
         'class_counts': class_counts,
+        'total_images': sum(class_counts),
+        'avg_count': avg_count
+    }
+
+def create_augmentation_comparison_chart(dataset_path, config, aug_stats):
+    """
+    Tạo đồ thị so sánh số lượng ảnh trước và sau augmentation
+    """
+    PLOT_DPI = config['PLOT_DPI']
+    
+    if not os.path.exists(dataset_path):
+        print(f"❌ Thư mục {dataset_path} không tồn tại!")
+        return None
+    
+    print("🔍 Đang tạo đồ thị so sánh augmentation...")
+    
+    # Lấy thông tin các class
+    class_names = []
+    original_counts = []
+    
+    for class_name in sorted(os.listdir(dataset_path)):
+        class_path = os.path.join(dataset_path, class_name)
+        if os.path.isdir(class_path):
+            # Đếm số file ảnh trong class
+            image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.gif', '.webp']
+            count = 0
+            for file in os.listdir(class_path):
+                file_lower = file.lower()
+                if any(file_lower.endswith(ext) for ext in image_extensions):
+                    count += 1
+            
+            if count > 0:
+                class_names.append(class_name)
+                original_counts.append(count)
+    
+    if not class_names:
+        print("❌ Không tìm thấy ảnh nào!")
+        return None
+    
+    # Tính toán số lượng ảnh sau augmentation
+    if config.get('USE_AUGMENTATION', False):
+        # Tính augmentation cho từng class
+        augmented_counts = []
+        for i, class_name in enumerate(class_names):
+            original_count = original_counts[i]
+            
+            # Kiểm tra xem class này có được augment không
+            should_augment = True
+            if config.get('CLASS_AUGMENTATION', {}).get('enable_selective', False):
+                class_aug_config = config['CLASS_AUGMENTATION']
+                # Chuyển tên class thành index (nếu cần)
+                class_index = i  # Giả sử thứ tự class trong dataset
+                
+                if class_index in class_aug_config.get('skip_classes', []):
+                    should_augment = False
+                elif class_aug_config.get('augment_classes') and class_index not in class_aug_config['augment_classes']:
+                    should_augment = False
+            
+            if should_augment:
+                # Tính số ảnh được augment cho class này
+                augment_ratio = config.get('CLASS_AUGMENTATION', {}).get('augment_ratio', 1.5)
+                augmented_count = int(original_count * augment_ratio)
+            else:
+                augmented_count = original_count
+            
+            augmented_counts.append(augmented_count)
+    else:
+        # Không có augmentation
+        augmented_counts = original_counts.copy()
+    
+    # Tạo đồ thị so sánh
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+    
+    # 1. Bar chart so sánh trước và sau augmentation
+    x = np.arange(len(class_names))
+    width = 0.35
+    
+    bars1 = ax1.bar(x - width/2, original_counts, width, label='Trước Augmentation', 
+                    color='lightblue', edgecolor='navy', alpha=0.7)
+    bars2 = ax1.bar(x + width/2, augmented_counts, width, label='Sau Augmentation', 
+                    color='lightcoral', edgecolor='darkred', alpha=0.7)
+    
+    ax1.set_title('So sánh số lượng ảnh trước và sau Augmentation', fontsize=16, fontweight='bold')
+    ax1.set_xlabel('Class', fontsize=12)
+    ax1.set_ylabel('Số lượng ảnh', fontsize=12)
+    ax1.set_xticks(x)
+    ax1.set_xticklabels(class_names, rotation=45, ha='right')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # Thêm số liệu trên bars
+    for bar in bars1:
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2., height + max(augmented_counts)*0.01,
+                f'{int(height)}', ha='center', va='bottom', fontweight='bold', fontsize=8)
+    
+    for bar in bars2:
+        height = bar.get_height()
+        ax1.text(bar.get_x() + bar.get_width()/2., height + max(augmented_counts)*0.01,
+                f'{int(height)}', ha='center', va='bottom', fontweight='bold', fontsize=8)
+    
+    # 2. Pie chart tỷ lệ augmentation
+    total_original = sum(original_counts)
+    total_augmented = sum(augmented_counts)
+    total_increase = total_augmented - total_original
+    
+    labels = ['Ảnh gốc', 'Ảnh được augment']
+    sizes = [total_original, total_increase]
+    colors = ['lightblue', 'lightcoral']
+    
+    wedges, texts, autotexts = ax2.pie(sizes, labels=labels, autopct='%1.1f%%', 
+                                       colors=colors, startangle=90)
+    ax2.set_title('Tỷ lệ ảnh gốc vs ảnh được augment', fontsize=16, fontweight='bold')
+    
+    # Thêm thông tin tổng quan
+    fig.suptitle('PHÂN TÍCH DATA AUGMENTATION', fontsize=18, fontweight='bold', y=0.95)
+    
+
+    
+    # Đảm bảo output folder tồn tại
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
+    
+    plt.tight_layout()
+    plt.savefig(os.path.join(config['OUTPUT_FOLDER'], 'augmentation_comparison.png'), dpi=PLOT_DPI, bbox_inches='tight')
+    
+    # Chỉ hiển thị nếu được cấu hình
+    if config.get('SHOW_PLOTS', False):
+        plt.show()
+    else:
+        plt.close()  # Đóng figure để tiết kiệm memory
+    
+    print(f"📊 Đồ thị so sánh augmentation đã được lưu vào: {config['OUTPUT_FOLDER']}/augmentation_comparison.png")
+    
+    return {
+        'class_names': class_names,
+        'original_counts': original_counts,
+        'augmented_counts': augmented_counts,
+        'total_original': total_original,
+        'total_augmented': total_augmented,
+        'total_increase': total_increase
+    }
+
+def analyze_and_visualize_dataset(dataset_path, config):
+    """
+    Phân tích dataset và trả về thông tin (không tạo đồ thị)
+    """
+    if not os.path.exists(dataset_path):
+        print(f"❌ Thư mục {dataset_path} không tồn tại!")
+        return None
+    
+    print("🔍 Đang phân tích dataset...")
+    
+    # Lấy thông tin các class
+    class_names = []
+    class_counts = []
+    class_distribution = {}
+    
+    for class_name in sorted(os.listdir(dataset_path)):
+        class_path = os.path.join(dataset_path, class_name)
+        if os.path.isdir(class_path):
+            # Đếm số file ảnh trong class
+            image_extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.gif', '.webp']
+            count = 0
+            for file in os.listdir(class_path):
+                file_lower = file.lower()
+                if any(file_lower.endswith(ext) for ext in image_extensions):
+                    count += 1
+            
+            if count > 0:
+                class_names.append(class_name)
+                class_counts.append(count)
+                class_distribution[class_name] = count
+    
+    if not class_names:
+        print("❌ Không tìm thấy ảnh nào!")
+        return None
+    
+    total_images = sum(class_counts)
+    avg_count = np.mean(class_counts)
+    min_count = min(class_counts)
+    max_count = max(class_counts)
+    
+    print(f"✅ Phân tích dataset hoàn thành!")
+    print(f"📊 Tổng số class: {len(class_names)}")
+    print(f"📊 Tổng số ảnh: {total_images:,}")
+    print(f"📊 Trung bình ảnh/class: {avg_count:.1f}")
+    print(f"📊 Ít nhất: {min_count} ảnh")
+    print(f"📊 Nhiều nhất: {max_count} ảnh")
+    
+    return {
+        'class_names': class_names,
+        'class_counts': class_counts,
+        'class_distribution': class_distribution,
         'total_images': total_images,
-        'balance_ratio': balance_ratio
+        'avg_count': avg_count,
+        'min_count': min_count,
+        'max_count': max_count
     }

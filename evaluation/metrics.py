@@ -43,89 +43,6 @@ def calculate_detailed_metrics(predictions, targets, n_classes):
         'classification_report': class_report
     }
 
-def analyze_imbalance_impact(metrics, class_names):
-    """
-    Phân tích ảnh hưởng của dataset imbalance
-    """
-    print("\n⚖️ PHÂN TÍCH ẢNH HƯỞNG IMBALANCE:")
-    print("-" * 40)
-    
-    # Lấy support (số lượng samples) cho từng class
-    support_per_class = metrics['support_per_class']
-    f1_per_class = metrics['f1_per_class']
-    
-    # Tính toán imbalance ratio
-    max_support = max(support_per_class)
-    min_support = min(support_per_class)
-    imbalance_ratio = min_support / max_support
-    
-    print(f"   Imbalance Ratio: {imbalance_ratio:.3f}")
-    
-    # Phân loại classes theo số lượng samples
-    minority_classes = []
-    majority_classes = []
-    
-    for i, support in enumerate(support_per_class):
-        if support <= max_support * 0.3:  # Classes có ít hơn 30% samples so với class lớn nhất
-            minority_classes.append((class_names[i], support, f1_per_class[i]))
-        else:
-            majority_classes.append((class_names[i], support, f1_per_class[i]))
-    
-    # Phân tích performance
-    if minority_classes:
-        minority_f1_avg = np.mean([f1 for _, _, f1 in minority_classes])
-        print(f"   Minority Classes ({len(minority_classes)}): {[name for name, _, _ in minority_classes]}")
-        print(f"   Minority Classes F1-Score TB: {minority_f1_avg:.4f}")
-    
-    if majority_classes:
-        majority_f1_avg = np.mean([f1 for _, _, f1 in majority_classes])
-        print(f"   Majority Classes ({len(majority_classes)}): {[name for name, _, _ in majority_classes]}")
-        print(f"   Majority Classes F1-Score TB: {majority_f1_avg:.4f}")
-    
-    # So sánh Macro vs Weighted
-    macro_f1 = metrics['macro_f1']
-    weighted_f1 = metrics['weighted_f1']
-    f1_difference = weighted_f1 - macro_f1
-    
-    print(f"   Macro vs Weighted F1 Difference: {f1_difference:.4f}")
-    
-    # Đánh giá mức độ imbalance
-    if imbalance_ratio > 0.8:
-        balance_status = "Cân bằng tốt"
-        impact_level = "Thấp"
-    elif imbalance_ratio > 0.5:
-        balance_status = "Cân bằng trung bình"
-        impact_level = "Trung bình"
-    elif imbalance_ratio > 0.2:
-        balance_status = "Mất cân bằng"
-        impact_level = "Cao"
-    else:
-        balance_status = "Mất cân bằng nghiêm trọng"
-        impact_level = "Rất cao"
-    
-    print(f"   Balance Status: {balance_status}")
-    print(f"   Impact Level: {impact_level}")
-    
-    # Cảnh báo nếu có vấn đề
-    if imbalance_ratio < 0.5:
-        print(f"   ⚠️ CẢNH BÁO: Dataset mất cân bằng nghiêm trọng!")
-        print(f"      - Classes ít ảnh có thể bị dự đoán sai")
-        print(f"      - Kết quả có thể không đại diện cho toàn bộ dataset")
-        print(f"      - Cần xem xét data augmentation hoặc resampling")
-    
-    if f1_difference > 0.1:
-        print(f"   ⚠️ CẢNH BÁO: Chênh lệch Macro-Weighted F1 lớn!")
-        print(f"      - Mô hình thiên về classes nhiều ảnh")
-        print(f"      - Cần cải thiện performance cho minority classes")
-    
-    # Gợi ý cải thiện
-    if imbalance_ratio < 0.5:
-        print(f"   💡 GỢI Ý CẢI THIỆN:")
-        print(f"      - Tăng data augmentation cho classes ít ảnh")
-        print(f"      - Sử dụng class weights trong loss function")
-        print(f"      - Thử nghiệm oversampling/undersampling")
-        print(f"      - Điều chỉnh N_WAY để đảm bảo đại diện đủ classes")
-
 def print_detailed_evaluation_metrics(metrics, class_names, dataset_name="Dataset"):
     """
     In ra các metrics đánh giá chi tiết
@@ -141,9 +58,6 @@ def print_detailed_evaluation_metrics(metrics, class_names, dataset_name="Datase
     print(f"   Weighted Precision: {metrics['weighted_precision']:.4f}")
     print(f"   Weighted Recall: {metrics['weighted_recall']:.4f}")
     print(f"   Weighted F1-Score: {metrics['weighted_f1']:.4f}")
-    
-    # Imbalance analysis
-    analyze_imbalance_impact(metrics, class_names)
     
     print("\n📈 METRICS THEO TỪNG CLASS:")
     print("-" * 40)
