@@ -1,0 +1,19 @@
+1. Mất cân bằng dữ liệu ảnh hưởng như thế nào đến kết quả ?
+
+2. Model transformer khác nhau thì có cải thiện gì không ?
+
+3. CNN chỉ dựng 1 mạng đơn giản hay có thể sử dụng 1 pre-trained model không ?
+
+4. Tại sao random sampling lại gây bias trong few-shot learning?
+
+5. Balanced sampling là gì và cách implement như thế nào?
+
+6. Với dataset plant disease classification (10 classes, ~100-500 ảnh/class), distance metric nào phù hợp nhất (Euclidean vs Cosine vs Relation Network)?
+
+7. Support Set, Query Set, Validation Set có vai trò khác nhau như thế nào trong few-shot learning?
+
+8. Cách cấu hình K_SHOT, Q_QUERY, Q_VALID tối ưu cho kết quả tốt nhất?
+
+9. Tại sao một số class chỉ có 100 ảnh vẫn có thể training được trong few-shot learning?
+
+10. Nên lấy kết quả từ Query Set hay Validation Set để đánh giá performance cuối cùng? 
