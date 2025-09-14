@@ -73,7 +73,7 @@ old/
 output/
 # Sphinx documentation
 docs/_build/
-
+result*/
 # PyBuilder
 .pybuilder/
 target/

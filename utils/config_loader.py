@@ -18,6 +18,7 @@ def load_config():
         'Q_QUERY': 5,
         'EMBED_DIM': 512,
         'IMAGE_SIZE': 224,
+        'TRANSFORMER_MODEL': 'swin_base_patch4_window7_224',
         'RELATION_DIM': 64,  # Thêm tham số cho Relation Network
         'DISTANCE_METHOD': 'relation_network',  # Phương pháp đo khoảng cách
         'USE_LEARNABLE_METRIC': True,  # Sử dụng metric có thể học được
@@ -80,6 +81,33 @@ def load_config():
             print("⚠️ Sử dụng cấu hình mặc định")
     else:
         print("⚠️ Không tìm thấy config.py, sử dụng cấu hình mặc định")
+
+    # Giới hạn chỉ hỗ trợ Swin/ConvNeXt và đồng bộ IMAGE_SIZE
+    allowed_models = {
+        'swin_base_patch4_window7_224',
+        'swin_large_patch4_window12_384',
+        'convnext_base',
+        'convnext_large'
+    }
+    image_size_map = {
+        'swin_base_patch4_window7_224': 224,
+        'swin_large_patch4_window12_384': 384,
+        'convnext_base': 224,
+        'convnext_large': 224
+    }
+
+    cfg_model = default_config.get('TRANSFORMER_MODEL', 'swin_base_patch4_window7_224')
+    if cfg_model not in allowed_models:
+        print(f"⚠️ Model '{cfg_model}' không được hỗ trợ. Chỉ hỗ trợ Swin/ConvNeXt.")
+        cfg_model = 'swin_base_patch4_window7_224'
+        default_config['TRANSFORMER_MODEL'] = cfg_model
+        print(f"➡️ Tự động chuyển sang: {cfg_model}")
+
+    target_img_size = image_size_map.get(cfg_model, 224)
+    if default_config.get('IMAGE_SIZE', 224) != target_img_size:
+        print(f"ℹ️ IMAGE_SIZE ({default_config.get('IMAGE_SIZE')}) không khớp với model '{cfg_model}'.")
+        default_config['IMAGE_SIZE'] = target_img_size
+        print(f"➡️ Tự động đặt IMAGE_SIZE = {target_img_size}")
     
     # Thiết lập output folder
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -112,6 +140,7 @@ def print_config_summary(config):
     print(f"   Image size: {config['IMAGE_SIZE']}x{config['IMAGE_SIZE']}")
     print(f"   Embedding dim: {config['EMBED_DIM']}")
     print(f"   Relation Network dim: {config['RELATION_DIM']}")
+    print(f"   Transformer: {config.get('TRANSFORMER_MODEL', 'swin_base_patch4_window7_224')}")
     print(f"   Distance method: {config.get('DISTANCE_METHOD', 'relation_network')}")
     print(f"   Learnable metric: {config.get('USE_LEARNABLE_METRIC', True)}")
     print(f"   Show plots: {config.get('SHOW_PLOTS', False)}")

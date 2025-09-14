@@ -6,20 +6,25 @@ DATASET_PATH = r'D:\AI\New-Dataset'
 # Tham số Few-Shot Learning (đã tối ưu hóa)
 N_WAY = 10         # Số class trong mỗi episode (sử dụng tất cả 10 class)
 K_SHOT = 3         # Số ảnh support mỗi class (tăng từ 1 lên 3)
-Q_QUERY = 3        # Số ảnh query mỗi class (giữ nguyên 5)
-Q_VALID = 3        # Số ảnh validation mỗi class (mới thêm)
+Q_QUERY = 5        # Số ảnh query mỗi class (giữ nguyên 5)
+Q_VALID = 1        # Số ảnh validation mỗi class (mới thêm)
 
 # Tham số mô hình
 EMBED_DIM = 512    # Kích thước embedding
 IMAGE_SIZE = 224   # Kích thước ảnh input
 RELATION_DIM = 64  # Kích thước relation network hidden layer
 
+# Cấu hình Transformer backbone
+TRANSFORMER_MODEL = "swin_base_patch4_window7_224"  # Các tùy chọn:
+# Swin: "swin_base_patch4_window7_224", "swin_large_patch4_window12_384"
+# ConvNeXt: "convnext_base", "convnext_large"
+
 # Cấu hình phép đo khoảng cách
 DISTANCE_METHOD = "euclidean"  # "euclidean" hoặc "relation_network"
 USE_LEARNABLE_METRIC = False  # True = Relation Network, False = Euclidean Distance
 
 # Tham số training
-NUM_EPISODES = 100  # Số episodes để chạy
+NUM_EPISODES = 16  # Số episodes để chạy
 SAVE_RESULTS = True  # Lưu kết quả
 USE_AUGMENTATION = True  # Bật/tắt data augmentation (True = có, False = không)
 

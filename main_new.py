@@ -21,7 +21,7 @@ from visualization.plots import (
 from training.episode_runner import run_multiple_episodes_with_detailed_evaluation
 from utils.class_augmentation import ClassSpecificAugmentation
 
-def save_config_to_output_folder(config, output_folder, aug_stats=None):
+def save_config_to_output_folder(config, output_folder, aug_stats=None, model_info=None):
     """
     Lưu cấu hình vào file JSON trong folder kết quả
     """
@@ -38,6 +38,10 @@ def save_config_to_output_folder(config, output_folder, aug_stats=None):
     # Thêm timestamp
     config_to_save['timestamp'] = datetime.now().isoformat()
     config_to_save['output_folder'] = output_folder
+    
+    # Thêm thông tin model nếu có
+    if model_info:
+        config_to_save['model_info'] = model_info
     
     # Thêm thống kê augmentation nếu có
     if aug_stats:
@@ -141,7 +145,7 @@ def main():
     config = load_config()
     print_config_summary(config)
     
-    # Lưu cấu hình vào folder kết quả (sẽ cập nhật sau khi có aug_stats)
+    # Lưu cấu hình vào folder kết quả (sẽ cập nhật sau khi có model_info và aug_stats)
     save_config_to_output_folder(config, config['OUTPUT_FOLDER'])
     
     # Thiết lập device
@@ -180,7 +184,7 @@ def main():
         aug_stats = calculate_augmentation_stats(config, dataset_info)
         print_augmentation_stats(aug_stats, config)
         
-        # Cập nhật config với thống kê augmentation
+        # Cập nhật config với thống kê augmentation (model_info sẽ được thêm sau)
         save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
         
         # Xử lý class-specific augmentation
@@ -211,7 +215,7 @@ def main():
                                        if not plan['should_augment']]
                 }
                 
-                # Cập nhật config với thống kê mới
+                # Cập nhật config với thống kê mới (model_info sẽ được thêm sau)
                 save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
                 
                 # Tạo đồ thị so sánh augmentation
@@ -252,7 +256,7 @@ def main():
         print(f"🚀 Kích thước dataset hiệu quả: {aug_stats['effective_dataset_size']:,}")
         print("=" * 50)
         
-        # Cập nhật config với thống kê
+        # Cập nhật config với thống kê (model_info sẽ được thêm sau)
         save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats)
     
     print("\n" + "=" * 60)
@@ -270,24 +274,53 @@ def main():
     # Khởi tạo model với phương pháp được chọn
     distance_method = config.get('DISTANCE_METHOD', 'relation_network')
     use_learnable = config.get('USE_LEARNABLE_METRIC', True)
+    transformer_model = config.get('TRANSFORMER_MODEL', 'swin_base_patch4_window7_224')
     
     if use_learnable:
         model = FlexibleDistanceModel(
             embed_dim=config['EMBED_DIM'], 
             relation_dim=config['RELATION_DIM'],
-            distance_method=distance_method
+            distance_method=distance_method,
+            transformer_model=transformer_model
         ).to(DEVICE)
     else:
         model = FlexibleDistanceModel(
             embed_dim=config['EMBED_DIM'], 
             relation_dim=config['RELATION_DIM'],
-            distance_method="euclidean"
+            distance_method="euclidean",
+            transformer_model=transformer_model
         ).to(DEVICE)
+    
+    # Tạo thông tin model để lưu vào JSON
+    transformer_names = {
+        'swin_base_patch4_window7_224': 'Swin-Base',
+        'swin_large_patch4_window12_384': 'Swin-Large',
+        'convnext_base': 'ConvNeXt-Base',
+        'convnext_large': 'ConvNeXt-Large'
+    }
+    
+    model_info = {
+        'model_name': 'FlexibleDistanceModel',
+        'backbone': transformer_names.get(model.transformer_model, model.transformer_model),
+        'backbone_architecture': model.transformer_model,
+        'embed_dim': config['EMBED_DIM'],
+        'relation_dim': config['RELATION_DIM'],
+        'distance_method': distance_method,
+        'use_learnable_metric': use_learnable,
+        'total_parameters': sum(p.numel() for p in model.parameters()),
+        'trainable_parameters': sum(p.numel() for p in model.parameters() if p.requires_grad),
+        'device': DEVICE
+    }
     
     print(f"✅ Flexible Distance Model đã được tải lên {DEVICE}")
     print(f"📊 Cấu hình: {config['N_WAY']}-way, {config['K_SHOT']}-shot, {config['Q_QUERY']}-query")
-    print(f"🧠 Kiến trúc: Vision Transformer + {distance_method.upper()}")
+    print(f"🧠 Kiến trúc: {model_info['backbone']} + {distance_method.upper()}")
+    print(f"📈 Tổng tham số: {model_info['total_parameters']:,}")
+    print(f"🔧 Tham số có thể train: {model_info['trainable_parameters']:,}")
     print("=" * 60)
+    
+    # Lưu thông tin model vào config JSON
+    save_config_to_output_folder(config, config['OUTPUT_FOLDER'], aug_stats, model_info)
 
     # Chạy episodes với Relation Network
     use_aug = config.get('USE_AUGMENTATION', False)
@@ -397,7 +430,8 @@ def main():
         print(f"📊 Validation accuracy theo class: {config['OUTPUT_FOLDER']}/valid_accuracy_by_class.png")
         # print(f"📊 Validation imbalance analysis: {config['OUTPUT_FOLDER']}/valid_imbalance_analysis.png")
     
-    print(f"🧠 Phương pháp: {distance_method.upper()} ({'Có thể học được' if use_learnable else 'Cố định'})")
+    print(f"🧠 Model: {model_info['model_name']} ({model_info['backbone']})")
+    print(f"🔧 Phương pháp: {distance_method.upper()} ({'Có thể học được' if use_learnable else 'Cố định'})")
     if use_learnable:
         print(f"📈 Relation scores: 0-1 (cao hơn = tương tự hơn)")
     else:

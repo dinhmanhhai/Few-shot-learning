@@ -10,14 +10,55 @@ class TransformerBackbone(nn.Module):
     """
     Vision Transformer backbone cho few-shot learning
     """
-    def __init__(self, out_dim=512):
+    def __init__(self, out_dim=512, model_name='swin_base_patch4_window7_224'):
         super().__init__()
-        self.encoder = create_model('vit_base_patch16_224', pretrained=True)
-        self.encoder.head = nn.Identity()
-        self.project = nn.Linear(768, out_dim)
+        self.model_name = model_name
+        # Chỉ cho phép Swin và ConvNeXt
+        allowed_models = {
+            'swin_base_patch4_window7_224', 'swin_large_patch4_window12_384',
+            'convnext_base', 'convnext_large'
+        }
+        if self.model_name not in allowed_models:
+            print(f"⚠️ Model '{self.model_name}' không được hỗ trợ (chỉ Swin/ConvNeXt). Fallback sang 'swin_base_patch4_window7_224'.")
+            self.model_name = 'swin_base_patch4_window7_224'
+        try:
+            self.encoder = create_model(self.model_name, pretrained=True)
+        except Exception as e:
+            print(f"⚠️ Không thể tải model '{self.model_name}' từ timm ({e}). Dùng fallback 'swin_base_patch4_window7_224'.")
+            self.model_name = 'swin_base_patch4_window7_224'
+            self.encoder = create_model(self.model_name, pretrained=True)
+
+        # Lấy số features TRƯỚC khi thay head/classifier bằng Identity
+        in_features = getattr(self.encoder, 'num_features', None)
+        if in_features is None:
+            if hasattr(self.encoder, 'head') and hasattr(self.encoder.head, 'in_features'):
+                in_features = self.encoder.head.in_features
+            elif hasattr(self.encoder, 'classifier') and hasattr(self.encoder.classifier, 'in_features'):
+                in_features = self.encoder.classifier.in_features
+            else:
+                # Fallback dựa trên tên model
+                if 'swin' in model_name:
+                    in_features = 1024 if 'large' in model_name else 768
+                elif 'convnext' in model_name:
+                    in_features = 1024 if 'large' in model_name else 768
+                else:
+                    in_features = 768
+
+        # Loại bỏ classifier để lấy feature vector
+        if hasattr(self.encoder, 'reset_classifier'):
+            # timm models thường có API này
+            self.encoder.reset_classifier(0)
+        else:
+            if hasattr(self.encoder, 'head'):
+                self.encoder.head = nn.Identity()
+            if hasattr(self.encoder, 'classifier'):
+                self.encoder.classifier = nn.Identity()
+
+        self.project = nn.Linear(in_features, out_dim)
 
     def forward(self, x):
-        return self.project(self.encoder(x))
+        features = self.encoder(x)
+        return self.project(features)
 
 class RelationNetwork(nn.Module):
     """
@@ -210,15 +251,29 @@ class FlexibleDistanceModel(nn.Module):
     """
     Model linh hoạt có thể chọn giữa Euclidean Distance và Relation Network
     """
-    def __init__(self, embed_dim=512, relation_dim=64, distance_method="relation_network"):
+    def __init__(self, embed_dim=512, relation_dim=64, distance_method="relation_network", transformer_model="swin_base_patch4_window7_224"):
         super().__init__()
-        self.backbone = TransformerBackbone(embed_dim)
+        self.backbone = TransformerBackbone(embed_dim, transformer_model)
         self.relation_net = RelationNetwork(embed_dim, relation_dim)
         self.embed_dim = embed_dim
         self.relation_dim = relation_dim
         self.distance_method = distance_method
+        # Cập nhật tên model thực tế (sau fallback nếu có)
+        self.transformer_model = getattr(self.backbone, 'model_name', transformer_model)
         
-        print(f"🎯 Khởi tạo model với phương pháp: {distance_method}")
+        # Tên hiển thị cho transformer
+        transformer_names = {
+            'swin_base_patch4_window7_224': 'Swin-Base',
+            'swin_large_patch4_window12_384': 'Swin-Large',
+            'convnext_base': 'ConvNeXt-Base',
+            'convnext_large': 'ConvNeXt-Large'
+        }
+        
+        display_name = transformer_names.get(self.transformer_model, self.transformer_model)
+        
+        print(f"🎯 Khởi tạo model với transformer: {display_name}")
+        print(f"   - Architecture: {self.transformer_model}")
+        print(f"   - Phương pháp: {distance_method}")
         if distance_method == "relation_network":
             print(f"   - Sử dụng Relation Network (có thể học được)")
             print(f"   - Relation dimension: {relation_dim}")

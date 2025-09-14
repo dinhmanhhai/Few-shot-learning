@@ -30,7 +30,7 @@ predictions = torch.argmax(relation_scores, dim=1)
 ## 🏗️ **Kiến trúc Relation Network**
 
 ### **1. Transformer Backbone**
-- **Model**: Vision Transformer (vit_base_patch16_224)
+- **Model**: Swin Transformer hoặc ConvNeXt
 - **Chức năng**: Trích xuất đặc trưng từ ảnh
 - **Output**: Embedding vectors (512 chiều)
 

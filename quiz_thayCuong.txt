@@ -1,7 +1,0 @@
-1. Mất cân bằng dữ liệu ảnh hưởng như thế nào đến kết quả ?
-
-2. Model transformer khác nhau thì có cải thiện gì không ?
-
-3. CNN chỉ dựng 1 mạng đơn giản hay có thể sử dụng 1 pre-trained model không ?
-
-4. 
