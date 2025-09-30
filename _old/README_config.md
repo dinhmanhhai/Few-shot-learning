@@ -66,7 +66,7 @@ USE_CUDA = True        # Sử dụng GPU nếu có
 
 ### **Phân tích Dataset:**
 ```python
-DETAILED_ANALYSIS = True  # Phân tích chi tiết (True) hoặc cơ bản (False)
+# Phân tích dataset được thực hiện tự động
 SAVE_DETAILED_PLOTS = True  # Lưu đồ thị chi tiết
 ```
 
@@ -122,10 +122,7 @@ AUGMENTATION_CONFIG = {
 
 Sau khi chạy, bạn sẽ nhận được:
 
-### **Với phân tích cơ bản (`DETAILED_ANALYSIS = False`):**
-- `dataset_analysis.png`: Phân tích dataset cơ bản (4 đồ thị)
-
-### **Với phân tích chi tiết (`DETAILED_ANALYSIS = True`):**
+### **Phân tích dataset tự động:**
 - `dataset_analysis/detailed_analysis.png`: Phân tích chi tiết (6 đồ thị)
 - `dataset_analysis/file_formats_analysis.png`: Phân tích định dạng file
 

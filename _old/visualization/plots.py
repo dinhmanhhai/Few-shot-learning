@@ -286,7 +286,8 @@ def plot_single_results(results_with_aug, save_path, config):
     
     if has_validation:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-        fig.suptitle('FEW-SHOT LEARNING RESULTS WITH DATA AUGMENTATION (WITH VALIDATION)', fontsize=16, fontweight='bold')
+        # Bỏ tiêu đề chính để hình ảnh gọn gàng hơn
+        # fig.suptitle('FEW-SHOT LEARNING RESULTS WITH DATA AUGMENTATION (WITH VALIDATION)', fontsize=16, fontweight='bold')
         
         # 1. Accuracy by episodes (Query vs Validation)
         episodes = range(1, len(results_with_aug['query_accuracies']) + 1)
@@ -324,7 +325,8 @@ def plot_single_results(results_with_aug, save_path, config):
     else:
         # Fallback for case without validation
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
-        fig.suptitle('FEW-SHOT LEARNING RESULTS WITH DATA AUGMENTATION', fontsize=16, fontweight='bold')
+        # Bỏ tiêu đề chính để hình ảnh gọn gàng hơn
+        # fig.suptitle('FEW-SHOT LEARNING RESULTS WITH DATA AUGMENTATION', fontsize=16, fontweight='bold')
         
         # 1. Accuracy by episodes
         episodes = range(1, len(results_with_aug['query_accuracies']) + 1)
@@ -361,5 +363,105 @@ def plot_single_results(results_with_aug, save_path, config):
         plt.close()  # Close figure to save memory
     
     print(f"📊 Results plot saved to: {save_path}")
+
+def plot_classification_report(metrics, class_names, save_path, config, dataset_name="Query Set"):
+    """
+    Tạo bảng classification report tương tự như sklearn classification_report
+    """
+    # Ensure save_path is in output folder
+    if not save_path.startswith(config['OUTPUT_FOLDER']):
+        save_path = os.path.join(config['OUTPUT_FOLDER'], save_path)
+    
+    # Ensure output folder exists
+    os.makedirs(config['OUTPUT_FOLDER'], exist_ok=True)
+    
+    # Tạo figure với table
+    fig, ax = plt.subplots(figsize=(12, 8))
+    ax.axis('tight')
+    ax.axis('off')
+    
+    # Chuẩn bị dữ liệu cho bảng
+    table_data = []
+    
+    # Header
+    headers = ['', 'precision', 'recall', 'f1-score', 'support']
+    
+    # Dữ liệu cho từng class
+    for i, class_name in enumerate(class_names):
+        row = [
+            class_name,
+            f"{metrics['precision_per_class'][i]:.2f}",
+            f"{metrics['recall_per_class'][i]:.2f}",
+            f"{metrics['f1_per_class'][i]:.2f}",
+            f"{int(metrics['support_per_class'][i])}"
+        ]
+        table_data.append(row)
+    
+    # Thêm dòng trống
+    table_data.append([''] * 5)
+    
+    # Thêm accuracy
+    total_support = int(metrics['support_per_class'].sum())
+    accuracy = metrics['macro_f1']  # Sử dụng macro F1 làm accuracy approximation
+    table_data.append(['accuracy', '', '', f"{accuracy:.2f}", f"{total_support}"])
+    
+    # Thêm macro avg
+    table_data.append([
+        'macro avg',
+        f"{metrics['macro_precision']:.2f}",
+        f"{metrics['macro_recall']:.2f}",
+        f"{metrics['macro_f1']:.2f}",
+        f"{total_support}"
+    ])
+    
+    # Thêm weighted avg
+    table_data.append([
+        'weighted avg',
+        f"{metrics['weighted_precision']:.2f}",
+        f"{metrics['weighted_recall']:.2f}",
+        f"{metrics['weighted_f1']:.2f}",
+        f"{total_support}"
+    ])
+    
+    # Tạo bảng
+    table = ax.table(cellText=table_data, colLabels=headers, 
+                    cellLoc='center', loc='center', bbox=[0, 0, 1, 1])
+    
+    # Định dạng bảng
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2)
+    
+    # Định dạng header
+    for i in range(len(headers)):
+        table[(0, i)].set_facecolor('#4CAF50')
+        table[(0, i)].set_text_props(weight='bold', color='white')
+    
+    # Định dạng các dòng class
+    for i in range(1, len(class_names) + 1):
+        for j in range(len(headers)):
+            table[(i, j)].set_facecolor('#f0f0f0')
+    
+    # Định dạng các dòng summary (accuracy, macro avg, weighted avg)
+    summary_rows = [len(class_names) + 2, len(class_names) + 3, len(class_names) + 4]
+    for row in summary_rows:
+        for j in range(len(headers)):
+            table[(row, j)].set_facecolor('#e8f4fd')
+            table[(row, j)].set_text_props(weight='bold')
+    
+    # Đặt tiêu đề
+    plt.title(f'Classification Report - {dataset_name}', fontsize=16, fontweight='bold', pad=20)
+    
+    # Lưu hình ảnh
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=config['PLOT_DPI'], bbox_inches='tight')
+    
+    # Only show if configured
+    if config.get('SHOW_PLOTS', False):
+        plt.show()
+    else:
+        plt.close()  # Close figure to save memory
+    
+    print(f"📊 Classification report saved to: {save_path}")
 
 

@@ -18,7 +18,7 @@ def load_config():
         'Q_QUERY': 5,
         'EMBED_DIM': 512,
         'IMAGE_SIZE': 224,
-        'TRANSFORMER_MODEL': 'swin_base_patch4_window7_224',
+        'TRANSFORMER_MODEL': 'vit_base_patch16_224',
         'RELATION_DIM': 64,  # Thêm tham số cho Relation Network
         'DISTANCE_METHOD': 'relation_network',  # Phương pháp đo khoảng cách
         'USE_LEARNABLE_METRIC': True,  # Sử dụng metric có thể học được
@@ -50,8 +50,7 @@ def load_config():
         'PLOT_DPI': 300,          # Độ phân giải đồ thị
         'USE_CUDA': True,
         'USE_VALIDATION': True,
-        'Q_VALID': 3,
-        'DETAILED_ANALYSIS': False
+        'Q_VALID': 3
     }
     
     # Thử load từ config.py
@@ -82,23 +81,41 @@ def load_config():
     else:
         print("⚠️ Không tìm thấy config.py, sử dụng cấu hình mặc định")
 
-    # Giới hạn chỉ hỗ trợ Swin/ConvNeXt và đồng bộ IMAGE_SIZE
+    # Hỗ trợ đa dạng Transformer models và đồng bộ IMAGE_SIZE
     allowed_models = {
+        # Swin Transformer
         'swin_base_patch4_window7_224',
         'swin_large_patch4_window12_384',
+        # ConvNeXt
         'convnext_base',
-        'convnext_large'
+        'convnext_large',
+        # Vision Transformer (ViT)
+        'vit_base_patch16_224',
+        'vit_large_patch16_224',
+        'vit_huge_patch14_224',
+        # Data-efficient Image Transformers (DeiT)
+        'deit_base_patch16_224',
+        'deit_large_patch16_224'
     }
     image_size_map = {
+        # Swin Transformer
         'swin_base_patch4_window7_224': 224,
         'swin_large_patch4_window12_384': 384,
+        # ConvNeXt
         'convnext_base': 224,
-        'convnext_large': 224
+        'convnext_large': 224,
+        # Vision Transformer (ViT)
+        'vit_base_patch16_224': 224,
+        'vit_large_patch16_224': 224,
+        'vit_huge_patch14_224': 224,
+        # Data-efficient Image Transformers (DeiT)
+        'deit_base_patch16_224': 224,
+        'deit_large_patch16_224': 224
     }
 
     cfg_model = default_config.get('TRANSFORMER_MODEL', 'swin_base_patch4_window7_224')
     if cfg_model not in allowed_models:
-        print(f"⚠️ Model '{cfg_model}' không được hỗ trợ. Chỉ hỗ trợ Swin/ConvNeXt.")
+        print(f"⚠️ Model '{cfg_model}' không được hỗ trợ. Hỗ trợ: Swin/ConvNeXt/ViT/DeiT.")
         cfg_model = 'swin_base_patch4_window7_224'
         default_config['TRANSFORMER_MODEL'] = cfg_model
         print(f"➡️ Tự động chuyển sang: {cfg_model}")
